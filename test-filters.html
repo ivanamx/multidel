@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Filtros</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .filter-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .result { margin: 20px 0; padding: 10px; background: #f0f0f0; }
+        button { padding: 10px 20px; margin: 5px; }
+        select, input { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Prueba de Filtros - API MultiDel</h1>
+    
+    <div class="filter-section">
+        <h3>Filtros</h3>
+        <label>Estado: <select id="statusFilter">
+            <option value="">Todos</option>
+            <option value="pending">Pendiente</option>
+            <option value="preparing">Preparando</option>
+            <option value="ready">Listo</option>
+            <option value="delivering">En entrega</option>
+            <option value="delivered">Entregado</option>
+        </select></label>
+        
+        <label>Plataforma: <select id="platformFilter">
+            <option value="">Todas</option>
+            <option value="Uber Eats">Uber Eats</option>
+            <option value="Rappi">Rappi</option>
+            <option value="Didi Food">Didi Food</option>
+        </select></label>
+        
+        <label>Desde: <input type="date" id="dateFrom"></label>
+        <label>Hasta: <input type="date" id="dateTo"></label>
+        
+        <br><br>
+        <button onclick="testFilters()">🧪 Probar Filtros</button>
+        <button onclick="clearTest()">🧹 Limpiar</button>
+    </div>
+    
+    <div class="result" id="result">
+        <h3>Resultado:</h3>
+        <div id="resultContent">Haz clic en "Probar Filtros" para ver el resultado</div>
+    </div>
+
+    <script>
+        async function testFilters() {
+            const status = document.getElementById('statusFilter').value;
+            const platform = document.getElementById('platformFilter').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            
+            const params = new URLSearchParams({
+                page: 1,
+                limit: 5
+            });
+            
+            if (status) params.append('status', status);
+            if (platform) params.append('platform', platform);
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+            
+            const url = `http://localhost:5678/api/orders?${params}`;
+            
+            document.getElementById('resultContent').innerHTML = `
+                <p><strong>URL:</strong> ${url}</p>
+                <p><strong>Filtros aplicados:</strong></p>
+                <ul>
+                    <li>Estado: ${status || 'Todos'}</li>
+                    <li>Plataforma: ${platform || 'Todas'}</li>
+                    <li>Desde: ${dateFrom || 'Sin fecha'}</li>
+                    <li>Hasta: ${dateTo || 'Sin fecha'}</li>
+                </ul>
+                <p>Cargando...</p>
+            `;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const orders = data.data;
+                    let html = `
+                        <p><strong>✅ Respuesta exitosa</strong></p>
+                        <p><strong>Total de pedidos:</strong> ${data.total}</p>
+                        <p><strong>Pedidos en esta página:</strong> ${data.count}</p>
+                        <p><strong>Página actual:</strong> ${data.currentPage} de ${data.totalPages}</p>
+                        <h4>Pedidos:</h4>
+                        <table border="1" style="border-collapse: collapse; width: 100%;">
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Plataforma</th>
+                                <th>Estado</th>
+                                <th>Total</th>
+                            </tr>
+                    `;
+                    
+                    orders.forEach(order => {
+                        html += `
+                            <tr>
+                                <td>${order.id}</td>
+                                <td>${order.customer_name}</td>
+                                <td>${order.platform_name}</td>
+                                <td>${order.status}</td>
+                                <td>$${order.total_amount}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</table>';
+                    document.getElementById('resultContent').innerHTML = html;
+                } else {
+                    document.getElementById('resultContent').innerHTML = `
+                        <p><strong>❌ Error:</strong> ${data.error || 'Error desconocido'}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('resultContent').innerHTML = `
+                    <p><strong>❌ Error de conexión:</strong> ${error.message}</p>
+                `;
+            }
+        }
+        
+        function clearTest() {
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('platformFilter').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('resultContent').innerHTML = 'Haz clic en "Probar Filtros" para ver el resultado';
+        }
+    </script>
+</body>
+</html> 
