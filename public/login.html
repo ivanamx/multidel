@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiDel - Iniciar Sesión</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-input {
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .alert {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Estilos responsivos para móviles */
+        @media (max-width: 768px) {
+            .login-container {
+                border-radius: 15px;
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+            
+            .mobile-logo {
+                width: 3rem;
+                height: 3rem;
+            }
+            
+            .mobile-title {
+                font-size: 1.75rem;
+            }
+            
+            .mobile-subtitle {
+                font-size: 0.875rem;
+            }
+            
+            .mobile-form-input {
+                padding: 0.75rem;
+                font-size: 0.875rem;
+            }
+            
+            .mobile-btn {
+                padding: 0.75rem;
+                font-size: 0.875rem;
+            }
+            
+            .mobile-text {
+                font-size: 0.75rem;
+            }
+            
+            .mobile-modal {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .login-container {
+                border-radius: 12px;
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+            
+            .xs-mobile-logo {
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+            
+            .xs-mobile-title {
+                font-size: 1.5rem;
+            }
+            
+            .xs-mobile-form-input {
+                padding: 0.625rem;
+                font-size: 0.8125rem;
+            }
+            
+            .xs-mobile-btn {
+                padding: 0.625rem;
+                font-size: 0.8125rem;
+            }
+            
+            .xs-mobile-text {
+                font-size: 0.6875rem;
+            }
+            
+            .xs-mobile-modal {
+                margin: 0.25rem;
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
+    <div class="login-container w-full max-w-md p-4 sm:p-8">
+        <!-- Logo y título -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-3 sm:mb-4 mobile-logo xs-mobile-logo">
+                <i class="fas fa-truck text-white text-lg sm:text-2xl"></i>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 mobile-title xs-mobile-title">MultiDel</h1>
+            <p class="text-sm sm:text-base text-gray-600 mobile-subtitle">Plataforma de Gestión de Pedidos</p>
+        </div>
+
+        <!-- Formulario de login -->
+        <form id="loginForm" class="space-y-4 sm:space-y-6">
+            <div>
+                <label for="username" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                    <i class="fas fa-user mr-1 sm:mr-2"></i>Usuario o Email
+                </label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required 
+                    class="form-input w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mobile-form-input xs-mobile-form-input"
+                    placeholder="Ingresa tu usuario o email"
+                >
+            </div>
+
+            <div>
+                <label for="password" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                    <i class="fas fa-lock mr-1 sm:mr-2"></i>Contraseña
+                </label>
+                <div class="relative">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        class="form-input w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 sm:pr-12 mobile-form-input xs-mobile-form-input"
+                        placeholder="Ingresa tu contraseña"
+                    >
+                    <button 
+                        type="button" 
+                        id="togglePassword" 
+                        class="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                        <i class="fas fa-eye text-sm sm:text-base"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <label class="flex items-center">
+                    <input type="checkbox" id="rememberMe" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="ml-2 text-xs sm:text-sm text-gray-600 mobile-text xs-mobile-text">Recordarme</span>
+                </label>
+                <button type="button" id="forgotPassword" class="text-xs sm:text-sm text-blue-600 hover:text-blue-800 mobile-text xs-mobile-text">
+                    ¿Olvidaste tu contraseña?
+                </button>
+            </div>
+
+            <button 
+                type="submit" 
+                id="loginBtn" 
+                class="btn-login w-full py-2 sm:py-3 px-4 text-white font-semibold rounded-lg hover:shadow-lg mobile-btn xs-mobile-btn"
+            >
+                <span id="loginText">Iniciar Sesión</span>
+                <i id="loginSpinner" class="fas fa-spinner loading ml-1 sm:ml-2 hidden"></i>
+            </button>
+        </form>
+
+        <!-- Alertas -->
+        <div id="alertContainer" class="mt-4 sm:mt-6"></div>
+
+        <!-- Enlaces adicionales -->
+        <div class="mt-6 sm:mt-8 text-center">
+            <p class="text-xs sm:text-sm text-gray-600 mobile-text xs-mobile-text">
+                ¿No tienes cuenta? 
+                <button id="showRegister" class="text-blue-600 hover:text-blue-800 font-medium">
+                    Regístrate aquí
+                </button>
+            </p>
+        </div>
+
+        <!-- Modal de registro -->
+        <div id="registerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-4 sm:p-8 max-w-md w-full mx-2 sm:mx-4 mobile-modal xs-mobile-modal">
+                <div class="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Crear Cuenta</h2>
+                    <button id="closeRegister" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-lg sm:text-xl"></i>
+                    </button>
+                </div>
+
+                <form id="registerForm" class="space-y-3 sm:space-y-4">
+                    <div>
+                        <label for="regUsername" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Usuario
+                        </label>
+                        <input 
+                            type="text" 
+                            id="regUsername" 
+                            name="username" 
+                            required 
+                            class="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mobile-form-input xs-mobile-form-input"
+                            placeholder="Nombre de usuario"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="regEmail" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Email
+                        </label>
+                        <input 
+                            type="email" 
+                            id="regEmail" 
+                            name="email" 
+                            required 
+                            class="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mobile-form-input xs-mobile-form-input"
+                            placeholder="tu@email.com"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="regPassword" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Contraseña
+                        </label>
+                        <input 
+                            type="password" 
+                            id="regPassword" 
+                            name="password" 
+                            required 
+                            class="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mobile-form-input xs-mobile-form-input"
+                            placeholder="Mínimo 6 caracteres"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="regRole" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Rol
+                        </label>
+                        <select 
+                            id="regRole" 
+                            name="role" 
+                            class="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mobile-form-input xs-mobile-form-input"
+                        >
+                            <option value="staff">Personal</option>
+                            <option value="manager">Gerente</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        id="registerBtn" 
+                        class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 mobile-btn xs-mobile-btn"
+                    >
+                        <span id="registerText">Crear Cuenta</span>
+                        <i id="registerSpinner" class="fas fa-spinner loading ml-1 sm:ml-2 hidden"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Elementos del DOM
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const loginText = document.getElementById('loginText');
+        const registerText = document.getElementById('registerText');
+        const loginSpinner = document.getElementById('loginSpinner');
+        const registerSpinner = document.getElementById('registerSpinner');
+        const alertContainer = document.getElementById('alertContainer');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        const registerModal = document.getElementById('registerModal');
+        const showRegister = document.getElementById('showRegister');
+        const closeRegister = document.getElementById('closeRegister');
+
+        // Mostrar/ocultar contraseña
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            const icon = togglePassword.querySelector('i');
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        });
+
+        // Mostrar modal de registro
+        showRegister.addEventListener('click', () => {
+            registerModal.classList.remove('hidden');
+            registerModal.classList.add('flex');
+        });
+
+        // Cerrar modal de registro
+        closeRegister.addEventListener('click', () => {
+            registerModal.classList.add('hidden');
+            registerModal.classList.remove('flex');
+        });
+
+        // Cerrar modal al hacer clic fuera
+        registerModal.addEventListener('click', (e) => {
+            if (e.target === registerModal) {
+                registerModal.classList.add('hidden');
+                registerModal.classList.remove('flex');
+            }
+        });
+
+        // Función para mostrar alertas
+        function showAlert(message, type = 'error') {
+            const alertClass = type === 'error' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-green-100 border-green-400 text-green-700';
+            const iconClass = type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle';
+            
+            const alert = document.createElement('div');
+            alert.className = `alert ${alertClass} px-4 py-3 rounded border mb-4`;
+            alert.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${iconClass} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alert);
+            
+            // Auto-remover después de 5 segundos
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Función para manejar el login
+        async function handleLogin(formData) {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Guardar token en localStorage
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    showAlert('¡Login exitoso! Redirigiendo...', 'success');
+                    
+                    // Redirigir al dashboard después de 1 segundo
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 1000);
+                } else {
+                    showAlert(data.message || 'Error en el login', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Error de conexión. Intenta nuevamente.', 'error');
+            }
+        }
+
+        // Función para manejar el registro
+        async function handleRegister(formData) {
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('¡Cuenta creada exitosamente! Ya puedes iniciar sesión.', 'success');
+                    registerModal.classList.add('hidden');
+                    registerModal.classList.remove('flex');
+                    registerForm.reset();
+                } else {
+                    showAlert(data.message || 'Error en el registro', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Error de conexión. Intenta nuevamente.', 'error');
+            }
+        }
+
+        // Event listener para el formulario de login
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(loginForm);
+            const data = {
+                username: formData.get('username'),
+                password: formData.get('password')
+            };
+
+            // Mostrar loading
+            loginBtn.disabled = true;
+            loginText.textContent = 'Iniciando sesión...';
+            loginSpinner.classList.remove('hidden');
+
+            await handleLogin(data);
+
+            // Ocultar loading
+            loginBtn.disabled = false;
+            loginText.textContent = 'Iniciar Sesión';
+            loginSpinner.classList.add('hidden');
+        });
+
+        // Event listener para el formulario de registro
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(registerForm);
+            const data = {
+                username: formData.get('username'),
+                email: formData.get('email'),
+                password: formData.get('password'),
+                role: formData.get('role')
+            };
+
+            // Mostrar loading
+            registerBtn.disabled = true;
+            registerText.textContent = 'Creando cuenta...';
+            registerSpinner.classList.remove('hidden');
+
+            await handleRegister(data);
+
+            // Ocultar loading
+            registerBtn.disabled = false;
+            registerText.textContent = 'Crear Cuenta';
+            registerSpinner.classList.add('hidden');
+        });
+
+        // Verificar si ya está logueado
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Verificar si el token es válido
+                fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Token válido, redirigir al dashboard
+                        window.location.href = '/dashboard.html';
+                    } else {
+                        // Token inválido, limpiar localStorage
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                    }
+                })
+                .catch(() => {
+                    // Error de conexión, limpiar localStorage
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

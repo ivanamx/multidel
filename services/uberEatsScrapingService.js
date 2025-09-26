@@ -76,7 +76,7 @@ class UberEatsScrapingService {
             });
 
             // Esperar a que cargue la página
-            await this.page.waitForTimeout(2000);
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Buscar y llenar campo de email
             const emailSelector = uberEatsConfig.uberEats.selectors.login.emailInput;
@@ -125,7 +125,7 @@ class UberEatsScrapingService {
             });
 
             // Esperar a que cargue el contenido
-            await this.page.waitForTimeout(3000);
+            await new Promise(resolve => setTimeout(resolve, 3000));
             
             console.log('✅ Navegación a pedidos completada');
             return true;

@@ -77,7 +77,7 @@ class DidiFoodScrapingService {
             });
 
             // Esperar a que cargue la página
-            await this.page.waitForTimeout(3000);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             // Buscar y llenar campo de email
             const emailSelector = didiFoodConfig.didiFood.selectors.login.emailInput;
@@ -105,7 +105,7 @@ class DidiFoodScrapingService {
             await this.page.click(loginButtonSelector);
 
             // Esperar respuesta del login
-            await this.page.waitForTimeout(3000);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             // Verificar si requiere verificación SMS
             const currentUrl = this.page.url();
@@ -155,7 +155,7 @@ class DidiFoodScrapingService {
 
             // Esperar un poco para que llegue el SMS
             console.log('⏳ Esperando código SMS...');
-            await this.page.waitForTimeout(5000);
+            await new Promise(resolve => setTimeout(resolve, 5000));
 
             // Llenar código de verificación
             const codeSelector = didiFoodConfig.didiFood.features.smsVerification.codeInput;
@@ -167,7 +167,7 @@ class DidiFoodScrapingService {
             await this.page.click(verifySelector);
 
             // Esperar respuesta
-            await this.page.waitForTimeout(3000);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             // Verificar si la verificación fue exitosa
             const currentUrl = this.page.url();
@@ -200,7 +200,7 @@ class DidiFoodScrapingService {
             });
 
             // Esperar a que cargue el contenido
-            await this.page.waitForTimeout(4000);
+            await new Promise(resolve => setTimeout(resolve, 4000));
             
             console.log('✅ Navegación a pedidos completada');
             return true;

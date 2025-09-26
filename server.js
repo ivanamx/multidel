@@ -136,6 +136,7 @@ console.log('📅 Tarea programada de tracking automático configurada (cada 2 m
 console.log('📅 Tarea programada de actualización del dashboard configurada (cada 30 segundos)');
 
 // Rutas
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/platforms', require('./routes/platforms'));
 app.use('/api/dashboard', require('./routes/dashboard'));
