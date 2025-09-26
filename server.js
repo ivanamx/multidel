@@ -146,10 +146,23 @@ app.use('/api/email-monitoring', require('./routes/email-monitoring'));
 app.use('/api/uber-eats-scraping', require('./routes/uber-eats-scraping'));
 app.use('/api/didi-food-scraping', require('./routes/didi-food-scraping'));
 
+// Servir archivos estáticos
+app.use(express.static('public'));
+
 // Ruta específica para servir archivos de imágenes
 app.get('/images/:filename', (req, res) => {
     const filename = req.params.filename;
     res.sendFile(`${__dirname}/public/images/${filename}`);
+});
+
+// Ruta para el dashboard
+app.get('/', (req, res) => {
+    res.sendFile(`${__dirname}/public/dashboard.html`);
+});
+
+// Ruta para el login
+app.get('/login', (req, res) => {
+    res.sendFile(`${__dirname}/public/login.html`);
 });
 
 // Ruta de salud
