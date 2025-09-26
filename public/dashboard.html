@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiDel - Dashboard de Pedidos</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        .status-pending { @apply bg-yellow-100 text-yellow-800; }
+        .status-preparing { @apply bg-orange-100 text-orange-800; }
+        .status-ready { @apply bg-green-100 text-green-800; }
+        .status-delivering { @apply bg-purple-100 text-purple-800; }
+        .status-delivered { @apply bg-gray-100 text-gray-800; }
+        
+        .platform-uber { @apply bg-black text-white; }
+        .platform-rappi { @apply bg-blue-600 text-white; }
+        .platform-didi { @apply bg-yellow-600 text-white; }
+        
+        .clickable-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .clickable-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Estilos para iconos personalizados de Leaflet */
+        .custom-div-icon { background: transparent; border: none; }
+        .custom-div-icon div { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); border: 2px solid white; }
+        /* Estilos para popups de Leaflet */
+        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+        .leaflet-popup-content { margin: 0; font-family: inherit; }
+        .leaflet-popup-tip { background: white; }
+        
+        /* Asegurar que las tarjetas de información aparezcan sobre el mapa */
+        .map-info-card {
+            position: relative;
+            z-index: 1000;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* Contenedor del mapa con z-index menor */
+        .map-container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Asegurar que los controles del mapa estén por encima */
+        .map-controls {
+            position: relative;
+            z-index: 1001;
+        }
+        
+        /* Estilos específicos para las tarjetas de estadísticas del mapa */
+        .delivery-stats-card {
+            position: relative;
+            z-index: 1000;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+        
+        /* Asegurar que los modales estén siempre por encima */
+        .modal {
+            z-index: 9999 !important;
+        }
+        
+        /* Asegurar que el contenido del modal esté por encima del mapa */
+        .modal-content {
+            position: relative;
+            z-index: 10000;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <i class="fas fa-truck text-2xl text-blue-600 mr-3"></i>
+                    <h1 class="text-2xl font-bold text-gray-900">MultiDel</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-500" id="lastUpdate"></span>
+                    <span class="text-sm text-gray-700 font-medium" id="currentDateTime"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6 clickable-card" onclick="showTodayStats()">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-shopping-bag text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Pedidos Hoy</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="todayOrders">0</p>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-blue-600">
+                    <i class="fas fa-info-circle mr-1"></i>Click para ver detalles
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6 clickable-card" onclick="showRevenueStats()">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-dollar-sign text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Ingresos Hoy</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="todayRevenue">$0</p>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-green-600">
+                    <i class="fas fa-info-circle mr-1"></i>Click para ver detalles
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6 clickable-card" onclick="showPendingStats()">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                        <i class="fas fa-clock text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Pendientes</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="pendingOrders">0</p>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-yellow-600">
+                    <i class="fas fa-info-circle mr-1"></i>Click para ver detalles
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6 clickable-card" onclick="showDeliveryStats()">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                        <i class="fas fa-motorcycle text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">En Entrega</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="deliveringOrders">0</p>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-purple-600">
+                    <i class="fas fa-info-circle mr-1"></i>Click para ver detalles
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Filtros de Búsqueda</h3>
+                <div class="flex items-center space-x-2">
+                    <div id="activeFiltersIndicator" class="hidden">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <i class="fas fa-filter mr-1"></i>Filtros activos
+                        </span>
+                    </div>
+                    <div id="filteringIndicator" class="hidden">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <i class="fas fa-spinner fa-spin mr-1"></i>Aplicando filtros...
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                    <select id="statusFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        <option value="">Todos los estados</option>
+                        <option value="pending">Pendiente</option>
+                        <option value="preparing">Preparando</option>
+                        <option value="ready">Listo</option>
+                        <option value="delivering">En entrega</option>
+                        <option value="delivered">Entregado</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Plataforma</label>
+                    <select id="platformFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        <option value="">Todas las plataformas</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Desde</label>
+                    <input type="date" id="dateFrom" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Hasta</label>
+                    <input type="date" id="dateTo" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                </div>
+                
+                <div class="flex items-end">
+                    <button id="clearFiltersBtn" onclick="clearFilters()" class="w-full bg-gray-300 text-gray-500 px-6 py-2 rounded-lg cursor-not-allowed transition-all duration-200" disabled>
+                        <i class="fas fa-times mr-2"></i>Limpiar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Pedidos Recientes</h3>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button id="todayBadge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors border-2 border-blue-300">
+                            <i class="fas fa-calendar-day mr-1"></i>Hoy
+                        </button>
+                        <button id="yesterdayBadge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                            <i class="fas fa-calendar mr-1"></i>Ayer
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Plataforma</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="ordersTableBody">
+                        <!-- Orders will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-gray-700" id="ordersCount">Mostrando 0 pedidos</p>
+                    <div class="flex space-x-2">
+                        <button onclick="previousPage()" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Anterior</button>
+                        <span class="px-3 py-1 text-sm text-gray-700" id="currentPage">Página 1</span>
+                        <button onclick="nextPage()" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Today Stats Modal -->
+    <div id="todayStatsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-screen overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-medium text-gray-900">
+                            <i class="fas fa-chart-bar mr-2 text-blue-600"></i>
+                            Estadísticas de Pedidos - Hoy
+                        </h3>
+                        <button onclick="closeTodayStatsModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4">
+                    <!-- Resumen de estadísticas -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-shopping-bag text-2xl text-blue-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-blue-600">Total Pedidos</p>
+                                    <p class="text-2xl font-bold text-blue-800" id="todayTotalOrders">0</p>
+                                    <p class="text-xs text-blue-500" id="todayOrdersInfo">del día</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-green-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-dollar-sign text-2xl text-green-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-green-600">Ingresos Totales</p>
+                                    <p class="text-2xl font-bold text-green-800" id="todayTotalRevenue">$0</p>
+                                    <p class="text-xs text-green-500" id="todayRevenueInfo">del día</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-calculator text-2xl text-yellow-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-yellow-600">Ticket Promedio</p>
+                                    <p class="text-2xl font-bold text-yellow-800" id="todayAvgTicket">$0</p>
+                                    <p class="text-xs text-yellow-500" id="todayTicketInfo">por pedido</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-clock text-2xl text-purple-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-purple-600">Tiempo Promedio</p>
+                                    <p class="text-2xl font-bold text-purple-800" id="todayAvgTime">0 min</p>
+                                    <p class="text-xs text-purple-500" id="todayDeliveryInfo">de entrega</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+
+                    </div>
+
+                    <!-- Gráficos -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Gráfico de pedidos por hora -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">Pedidos por Hora</h4>
+                            <canvas id="ordersByHourChart" width="400" height="200"></canvas>
+                        </div>
+                        
+                        <!-- Gráfico de pedidos por plataforma -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-chart-pie text-purple-500 mr-2"></i>
+                                Pedidos por Plataforma
+                            </h4>
+                            <div class="flex justify-center">
+                                <div style="width: 250px; height: 250px;">
+                                    <canvas id="ordersByPlatformChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas detalladas -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Productos más vendidos -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-star text-yellow-500 mr-2"></i>
+                                Productos Más Vendidos
+                            </h4>
+                            <div id="topProducts" class="space-y-2">
+                                <!-- Productos se cargarán aquí -->
+                            </div>
+                        </div>
+                        
+                        <!-- Tickets más altos y más bajos -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-trophy text-blue-500 mr-2"></i>
+                                Tickets Destacados
+                            </h4>
+                            <div class="space-y-4">
+                                <div class="bg-green-50 rounded-lg p-3">
+                                    <h5 class="font-medium text-green-800">Ticket Más Alto</h5>
+                                    <div id="highestTicket" class="text-sm text-green-600">
+                                        <!-- Se cargará aquí -->
+                                    </div>
+                                </div>
+                                <div class="bg-red-50 rounded-lg p-3">
+                                    <h5 class="font-medium text-red-800">Ticket Más Bajo</h5>
+                                    <div id="lowestTicket" class="text-sm text-red-600">
+                                        <!-- Se cargará aquí -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de pedidos del día -->
+                    <div class="mt-6 bg-white rounded-lg shadow">
+                        <div class="px-4 py-3 border-b border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-lg font-medium text-gray-900">Pedidos de Hoy</h4>
+                                <p class="text-sm text-blue-600">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Click en cualquier fila para ver detalles
+                                </p>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <div class="max-h-96 overflow-y-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plataforma</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200" id="todayOrdersTable">
+                                        <!-- Pedidos se cargarán aquí -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button onclick="closeTodayStatsModal()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Stats Modal -->
+    <div id="revenueStatsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-screen overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-medium text-gray-900">
+                            <i class="fas fa-chart-line mr-2 text-green-600"></i>
+                            Análisis Financiero - Ingresos Hoy
+                        </h3>
+                        <button onclick="closeRevenueStatsModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4">
+                    <!-- Métricas principales -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-green-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-dollar-sign text-2xl text-green-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-green-600">Ingresos Totales</p>
+                                    <p class="text-2xl font-bold text-green-800" id="revenueTotal">$0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-chart-line text-2xl text-blue-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-blue-600">vs Ayer</p>
+                                    <p class="text-2xl font-bold text-blue-800" id="revenueComparison">+0%</p>
+                                    <p class="text-xs text-blue-500" id="revenueComparisonInfo">comparación</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <i class="fas fa-target text-2xl text-purple-600 mr-3"></i>
+                                    <div>
+                                        <p class="text-sm text-purple-600">Meta Diaria</p>
+                                        <p class="text-2xl font-bold text-purple-800" id="revenueGoal">$500</p>
+                                    </div>
+                                </div>
+                                <button onclick="editRevenueGoal()" class="text-purple-600 hover:text-purple-800 transition-colors" title="Click para editar la meta diaria">
+                                    <i class="fas fa-edit text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-rocket text-2xl text-yellow-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-yellow-600">Proyección</p>
+                                    <p class="text-2xl font-bold text-yellow-800" id="revenueProjection">$0</p>
+                                    <p class="text-xs text-yellow-500" id="revenueProjectionInfo">para el día</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos financieros -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Gráfico de promedio de ticket por hora -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-chart-bar text-green-500 mr-2"></i>
+                                Promedio de Ticket por Hora
+                            </h4>
+                            <canvas id="revenueByHourChart" width="400" height="200"></canvas>
+                        </div>
+                        
+                        <!-- Gráfico de ingresos por plataforma -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-chart-pie text-purple-500 mr-2"></i>
+                                Ingresos por Plataforma
+                            </h4>
+                            <div class="flex justify-center">
+                                <div style="width: 250px; height: 250px;">
+                                    <canvas id="revenueByPlatformChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de acumulado del día -->
+                    <div class="bg-white rounded-lg shadow p-4 mb-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-chart-line text-blue-500 mr-2"></i>
+                            Acumulado del Día
+                        </h4>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="revenueAccumulatedChart"></canvas>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500 text-center">
+                            Muestra la evolución de ingresos acumulados a lo largo del día
+                        </div>
+                    </div>
+
+                    <!-- Análisis detallado -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Ingresos por plataforma -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-chart-pie text-blue-500 mr-2"></i>
+                                Ingresos por Plataforma
+                            </h4>
+                            <div id="platformRevenue" class="space-y-3">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                        
+                        <!-- Top 5 pedidos más caros -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-crown text-yellow-500 mr-2"></i>
+                                Top 5 Pedidos Más Caros
+                            </h4>
+                            <div id="topExpensiveOrders" class="space-y-2">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información adicional -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Comisiones estimadas -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-percentage text-red-500 mr-2"></i>
+                                Comisiones Estimadas
+                            </h4>
+                            <div id="estimatedCommissions" class="space-y-2">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                        
+                        <!-- Horas pico -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-clock text-orange-500 mr-2"></i>
+                                Horas Pico
+                            </h4>
+                            <div id="peakHours" class="space-y-2">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                        
+                        <!-- Productos más rentables -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-star text-green-500 mr-2"></i>
+                                Productos Más Rentables
+                            </h4>
+                            <div id="mostProfitableProducts" class="space-y-2">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button onclick="closeRevenueStatsModal()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Stats Modal -->
+    <div id="pendingStatsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-screen overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-medium text-gray-900">
+                            <i class="fas fa-clock mr-2 text-yellow-600"></i>
+                            Gestión de Pedidos Pendientes - Hoy
+                        </h3>
+                        <button onclick="closePendingStatsModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4">
+                    <!-- Métricas principales -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-yellow-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-clock text-2xl text-yellow-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-yellow-600">Total Pendientes</p>
+                                    <p class="text-2xl font-bold text-yellow-800" id="pendingTotal">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-orange-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle text-2xl text-orange-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-orange-600">Tiempo Promedio</p>
+                                    <p class="text-2xl font-bold text-orange-800" id="pendingAvgTime">0 min</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-fire text-2xl text-red-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-red-600">Urgentes (>30 min)</p>
+                                    <p class="text-2xl font-bold text-red-800" id="pendingUrgent">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-skull text-2xl text-purple-600 mr-3"></i>
+                                <div>
+                                    <p class="text-sm text-purple-600">Críticos (>45 min)</p>
+                                    <p class="text-2xl font-bold text-purple-800" id="pendingCritical">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos de análisis -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Gráfico de pendientes por plataforma -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-chart-pie text-purple-500 mr-2"></i>
+                                Pendientes por Plataforma - Hoy
+                            </h4>
+                            <div class="flex justify-center">
+                                <div style="width: 250px; height: 250px;">
+                                    <canvas id="pendingByPlatformChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráfico de tiempo de espera por hora -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">Tiempo de Espera por Hora</h4>
+                            <canvas id="waitTimeByHourChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Vista de cocina (Kanban) -->
+                    <div class="bg-white rounded-lg shadow p-4 mb-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-utensils text-blue-500 mr-2"></i>
+                            Vista de Cocina
+                        </h4>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Columna: Preparando -->
+                            <div class="bg-orange-50 rounded-lg p-4">
+                                <h5 class="font-medium text-orange-800 mb-3">Preparando</h5>
+                                <div id="kanbanPreparing" class="space-y-2 max-h-96 overflow-y-auto">
+                                    <!-- Pedidos se cargarán aquí -->
+                                </div>
+                            </div>
+                            
+                            <!-- Columna: Listos -->
+                            <div class="bg-green-50 rounded-lg p-4">
+                                <h5 class="font-medium text-green-800 mb-3">Listos</h5>
+                                <div id="kanbanReady" class="space-y-2 max-h-96 overflow-y-auto">
+                                    <!-- Pedidos se cargarán aquí -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de pedidos urgentes -->
+                    <div class="bg-white rounded-lg shadow p-4 mb-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+                            Pedidos Urgentes y Críticos (Ordenados por Prioridad)
+                        </h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-red-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-red-600 uppercase">ID</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-red-600 uppercase">Cliente</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-red-600 uppercase">Plataforma</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-red-600 uppercase">Tiempo/Estado</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-red-600 uppercase">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="urgentOrdersTable">
+                                    <!-- Pedidos urgentes se cargarán aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Análisis detallado -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Análisis por plataforma -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <div class="flex items-center">
+                                    <i class="fas fa-chart-bar text-blue-500 mr-2"></i>
+                                    <span>Análisis por Plataforma</span>
+                                    <div class="ml-3 flex space-x-2">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 min-w-[80px] text-center">
+                                            Pendiente
+                                        </span>
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full min-w-[80px] text-center" style="background-color: #fed7aa; color: #c2410c;">
+                                            Preparando
+                                        </span>
+                                    </div>
+                                </div>
+                            </h4>
+                            <div id="platformAnalysis" class="space-y-3">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                        
+                        <!-- Recomendaciones -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                Recomendaciones
+                            </h4>
+                            <div id="recommendations" class="space-y-3">
+                                <!-- Se cargará aquí -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button onclick="closePendingStatsModal()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Estadísticas de Entregas -->
+    <div id="deliveryStatsModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">
+                        <i class="fas fa-motorcycle text-purple-600 mr-3"></i>
+                        Estadísticas de Entregas en Tiempo Real
+                    </h3>
+                    <button onclick="closeDeliveryStatsModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Métricas principales -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-purple-50 rounded-lg p-4 map-info-card">
+                        <div class="flex items-center">
+                            <i class="fas fa-motorcycle text-2xl text-purple-600 mr-3"></i>
+                            <div>
+                                <p class="text-sm text-purple-600">En Entrega</p>
+                                <p class="text-2xl font-bold text-purple-800" id="deliveryTotal">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-green-50 rounded-lg p-4 map-info-card">
+                        <div class="flex items-center">
+                            <i class="fas fa-clock text-2xl text-green-600 mr-3"></i>
+                            <div>
+                                <p class="text-sm text-green-600">Tiempo Promedio</p>
+                                <p class="text-2xl font-bold text-green-800" id="deliveryAvgTime">0 min</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 rounded-lg p-4 map-info-card">
+                        <div class="flex items-center">
+                            <i class="fas fa-map-marker-alt text-2xl text-blue-600 mr-3"></i>
+                            <div>
+                                <p class="text-sm text-blue-600">Distancia Promedio</p>
+                                <p class="text-2xl font-bold text-blue-800" id="deliveryAvgDistance">0 km</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-orange-50 rounded-lg p-4 map-info-card">
+                        <div class="flex items-center">
+                            <i class="fas fa-star text-2xl text-orange-600 mr-3"></i>
+                            <div>
+                                <p class="text-sm text-orange-600">Eficiencia</p>
+                                <p class="text-2xl font-bold text-orange-800" id="deliveryEfficiency">95%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mapa de entregas -->
+                <div class="bg-white rounded-lg shadow p-4 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">
+                            <i class="fas fa-map text-blue-500 mr-2"></i>
+                            Mapa de Entregas en Tiempo Real
+                        </h4>
+                        <!-- Indicador de tracking automático -->
+                        <div id="autoTrackingIndicator" class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div class="flex items-center text-green-600">
+                                <i class="fas fa-sync-alt fa-spin mr-2"></i>
+                                <span class="text-sm font-medium">Actualización Automática en Tiempo Real</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Actualizando cada 5 segundos...
+                            </div>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <!-- Leyenda moderna del mapa -->
+                        <div class="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+                            <div class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                <i class="fas fa-map-marker-alt text-blue-500 mr-2"></i>
+                                Leyenda del Mapa
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full mr-3 flex items-center justify-center shadow-md">
+                                        <i class="fas fa-motorcycle text-white text-xs"></i>
+                                    </div>
+                                    <span class="text-sm text-gray-700 font-medium">Repartidor</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-gradient-to-br from-red-500 to-red-600 rounded-full mr-3 flex items-center justify-center shadow-md relative">
+                                        <i class="fas fa-store text-white text-xs"></i>
+                                        <div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border border-white"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-700 font-medium">Restaurante</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-gradient-to-br from-green-500 to-green-600 rounded-full mr-3 flex items-center justify-center shadow-md">
+                                        <i class="fas fa-home text-white text-xs"></i>
+                                    </div>
+                                    <span class="text-sm text-gray-700 font-medium">Cliente</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mapa -->
+                        <div id="deliveryMap" class="w-full h-96 rounded-lg map-container"></div>
+                    </div>
+                </div>
+
+                <!-- Gráficos de análisis -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Gráfico de entregas por hora -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">Entregas por Hora</h4>
+                        <div style="height: 200px;">
+                            <canvas id="deliveryByHourChart" width="300" height="150"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráfico de tiempo de entrega por zona -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">Tiempo por Zona</h4>
+                        <div style="height: 200px;">
+                            <canvas id="deliveryByZoneChart" width="300" height="150"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de entregas en curso -->
+                <div class="bg-white rounded-lg shadow p-4 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">
+                            <i class="fas fa-route text-purple-500 mr-2"></i>
+                            Entregas en Curso
+                        </h4>
+                        <p class="text-sm text-blue-600">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Click en cualquier fila para ver detalles
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-purple-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-purple-600 uppercase">ID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-purple-600 uppercase">Cliente</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-purple-600 uppercase">Plataforma</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-purple-600 uppercase">Tiempo Entrega</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-purple-600 uppercase">Distancia</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-purple-600 uppercase">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="activeDeliveriesTable">
+                                <!-- Entregas activas se cargarán aquí -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Análisis detallado -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Análisis por repartidor -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-user-tie text-blue-500 mr-2"></i>
+                            Análisis por Repartidor
+                        </h4>
+                        <div id="driverAnalysis" class="space-y-3">
+                            <!-- Se cargará aquí -->
+                        </div>
+                    </div>
+                    
+                    <!-- Zonas más activas -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-map-pin text-red-500 mr-2"></i>
+                            Zonas Más Activas
+                        </h4>
+                        <div id="activeZones" class="space-y-3">
+                            <!-- Se cargará aquí -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Métricas de rendimiento -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Tiempo promedio por plataforma -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-chart-line text-green-500 mr-2"></i>
+                            Tiempo Promedio por Plataforma
+                        </h4>
+                        <div id="platformDeliveryTimes" class="space-y-2">
+                            <!-- Se cargará aquí -->
+                        </div>
+                    </div>
+                    
+                    <!-- Entregas exitosas vs problemas -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            Tasa de Éxito
+                        </h4>
+                        <div id="deliverySuccessRate" class="space-y-2">
+                            <!-- Se cargará aquí -->
+                        </div>
+                    </div>
+                    
+                    <!-- Alertas de entrega -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">
+                            <i class="fas fa-bell text-orange-500 mr-2"></i>
+                            Alertas de Entrega
+                        </h4>
+                        <div id="deliveryAlerts" class="space-y-2">
+                            <!-- Se cargará aquí -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeDeliveryStatsModal()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="orderModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden" style="z-index: 99999;">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <h3 class="text-lg font-medium text-gray-900">Detalles del Pedido</h3>
+                            <div id="orderStatusBadge"></div>
+                        </div>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4" id="orderModalContent">
+                    <!-- Order details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Order Confirmation Modal -->
+    <div id="newOrderModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden" style="z-index: 99999;" onclick="return false;">
+        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation();">
+            <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+                <!-- Header con animación de pulso -->
+                <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="animate-pulse">
+                                <i class="fas fa-bell text-2xl text-green-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-900">¡Nuevo Pedido Recibido!</h3>
+                                <p class="text-sm text-gray-600">Confirma o rechaza este pedido</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span id="platformIconHeader" class="text-lg mr-2"></span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-clock mr-1"></i>Pendiente de Confirmación
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="px-4 py-3 overflow-hidden" id="newOrderModalContent">
+                    <!-- Contenido del modal se cargará aquí -->
+                </div>
+                
+                <!-- Footer con botones de acción -->
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-600">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Tienes <span id="confirmationTimer" class="font-bold text-red-600">30</span> segundos para confirmar
+                        </div>
+                        <div class="flex space-x-3">
+                            <button id="rejectOrderBtn" onclick="rejectOrder()" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center">
+                                <i class="fas fa-times mr-2"></i>Rechazar Pedido
+                            </button>
+                            <button id="acceptOrderBtn" onclick="acceptOrder()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center">
+                                <i class="fas fa-check mr-2"></i>Aceptar Pedido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Rechazo con Razones -->
+    <div id="rejectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden" style="z-index: 99999;">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-times-circle text-red-600 mr-2"></i>Rechazar Pedido
+                        </h3>
+                        <button onclick="closeRejectionModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4">
+                    <p class="text-gray-700 mb-4">Selecciona la razón del rechazo:</p>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="radio" name="rejectionReason" value="Sin ingredientes disponibles" class="text-red-600">
+                            <span class="text-gray-700">Sin ingredientes disponibles</span>
+                        </label>
+                        
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="radio" name="rejectionReason" value="Restaurante cerrado" class="text-red-600">
+                            <span class="text-gray-700">Restaurante cerrado</span>
+                        </label>
+                        
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="radio" name="rejectionReason" value="Demasiado ocupado" class="text-red-600">
+                            <span class="text-gray-700">Demasiado ocupado</span>
+                        </label>
+                        
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="radio" name="rejectionReason" value="Problema técnico" class="text-red-600">
+                            <span class="text-gray-700">Problema técnico</span>
+                        </label>
+                        
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="radio" name="rejectionReason" value="Otro" class="text-red-600">
+                            <span class="text-gray-700">Otro</span>
+                        </label>
+                        
+                        <div id="customReasonDiv" class="hidden">
+                            <textarea id="customReason" placeholder="Especifica la razón..." class="w-full p-2 border border-gray-300 rounded-md text-sm"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="closeRejectionModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button onclick="confirmRejection()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                            <i class="fas fa-times mr-2"></i>Rechazar Pedido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Tiempo de Preparación -->
+    <div id="preparationTimeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden" style="z-index: 999999;">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-clock text-orange-600 mr-2"></i>Tiempo de Preparación
+                        </h3>
+                        <button onclick="closePreparationTimeModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4">
+                    <p class="text-gray-700 mb-4">Selecciona el tiempo estimado de preparación para este pedido:</p>
+                    
+                    <div class="mb-4">
+                        <label for="preparationTimeSelect" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-hourglass-half mr-1"></i>Tiempo de preparación
+                        </label>
+                        <select id="preparationTimeSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                            <option value="10">10 minutos</option>
+                            <option value="15" selected>15 minutos</option>
+                            <option value="20">20 minutos</option>
+                            <option value="25">25 minutos</option>
+                            <option value="30">30 minutos</option>
+                            <option value="35">35 minutos</option>
+                            <option value="40">40 minutos</option>
+                            <option value="45">45 minutos</option>
+                            <option value="50">50 minutos</option>
+                            <option value="55">55 minutos</option>
+                            <option value="60">60 minutos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-blue-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">
+                                    <strong>Consejo:</strong> Selecciona un tiempo realista. Un tiempo muy corto puede causar retrasos, mientras que uno muy largo puede afectar la satisfacción del cliente.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="closePreparationTimeModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button onclick="confirmPreparationTime()" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center">
+                            <i class="fas fa-check mr-2"></i>Confirmar Tiempo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+            <script src="dashboard.js?v=5.4"></script>
+</body>
+</html>
